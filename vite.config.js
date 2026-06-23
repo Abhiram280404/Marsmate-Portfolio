@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/Marsmate-Portfolio/',
+  base: process.env.VERCEL ? '/' : '/Marsmate-Portfolio/',
 });
