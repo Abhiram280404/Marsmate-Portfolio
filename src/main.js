@@ -7,7 +7,7 @@ import { spaceSynth } from './synth.js';
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize 3D graphics (Starfield, Mars shader globe, network graph nodes)
   // Ensure DOM is parsed before targeting elements
-  threeScene.init('bg-canvas-container', 'about-canvas-target');
+  threeScene.init('bg-canvas-container');
 
   // 2. Initialize layout animations & micro-interactions (GSAP reveals, card tilt, filters, forms)
   interactions.init();

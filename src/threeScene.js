@@ -113,27 +113,16 @@ class ThreeScene {
     
     // Scroll tracking
     this.scrollProgress = 0;
-    
-    // About Section Canvas
-    this.aboutContainer = null;
-    this.aboutScene = null;
-    this.aboutCamera = null;
-    this.aboutRenderer = null;
-    this.aboutNodes = [];
-    this.aboutLinks = null;
 
     // Performance and Visibility Trackers
     this.isMobile = false;
-    this.aboutTargetId = null;
     this.isPrimarySceneVisible = true;
-    this.isAboutSceneVisible = false;
   }
 
-  init(containerId, aboutTargetId) {
+  init(containerId) {
     this.container = document.getElementById(containerId);
     if (!this.container) return;
 
-    this.aboutTargetId = aboutTargetId;
     this.isMobile = window.innerWidth < 768;
 
     // 1. Scene & Camera (Fog matched to brand background #0E0E0E)
@@ -169,10 +158,7 @@ class ThreeScene {
     sunLight.position.set(5, 3, 5);
     this.scene.add(sunLight);
 
-    // 6. About Section Interactive Graph Setup (Always enabled, optimized node count on mobile)
-    this.initAboutGraph(aboutTargetId);
-
-    // 7. Intersection Observers for Lazy Loading / Render Pausing
+    // 6. Intersection Observers for Lazy Loading / Render Pausing
     const heroSection = document.getElementById('hero');
     if (heroSection) {
       const heroObserver = new IntersectionObserver((entries) => {
@@ -181,16 +167,6 @@ class ThreeScene {
         });
       }, { threshold: 0.05 });
       heroObserver.observe(heroSection);
-    }
-
-    const aboutSection = document.getElementById('about');
-    if (aboutSection) {
-      const aboutObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          this.isAboutSceneVisible = entry.isIntersecting;
-        });
-      }, { threshold: 0.05 });
-      aboutObserver.observe(aboutSection);
     }
 
     // Event Listeners
@@ -417,140 +393,8 @@ class ThreeScene {
     this.mars.add(this.orbitalGroup);
   }
 
-  // --- ABOUT SECTION INTERACTIVE NETWORK GRAPH ---
-  initAboutGraph(targetId) {
-    this.aboutContainer = document.getElementById(targetId);
-    if (!this.aboutContainer) return;
 
-    const width = this.aboutContainer.clientWidth || 450;
-    const height = this.aboutContainer.clientHeight || 350;
 
-    // Scene & Ortho-Camera for clean node layouts
-    this.aboutScene = new THREE.Scene();
-    this.aboutCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    this.aboutCamera.position.z = 12;
-
-    // Renderer
-    this.aboutRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    this.aboutRenderer.setSize(width, height);
-    this.aboutRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.aboutContainer.appendChild(this.aboutRenderer.domElement);
-
-    // Add graph lighting
-    const graphLight = new THREE.DirectionalLight(0x00D4FF, 2.0);
-    graphLight.position.set(0, 0, 5);
-    this.aboutScene.add(graphLight);
-    this.aboutScene.add(new THREE.AmbientLight(0x050716, 0.8));
-
-    // Create Nodes (Data points)
-    const nodeCount = this.isMobile ? 8 : 18;
-    const sphereGeom = new THREE.SphereGeometry(0.18, 16, 16);
-    
-    for (let i = 0; i < nodeCount; i++) {
-      // Color categories
-      const randColor = i % 3 === 0 ? 0x00D4FF : (i % 3 === 1 ? 0x7B2FFF : 0xFF4D4D);
-      const material = new THREE.MeshBasicMaterial({
-        color: randColor,
-        transparent: true,
-        opacity: 0.9
-      });
-      
-      const mesh = new THREE.Mesh(sphereGeom, material);
-      
-      // Give random starting coordinates
-      mesh.position.set(
-        (Math.random() - 0.5) * 6,
-        (Math.random() - 0.5) * 5,
-        (Math.random() - 0.5) * 3
-      );
-      
-      // Velocities for drift
-      mesh.userData = {
-        velocity: new THREE.Vector3(
-          (Math.random() - 0.5) * 0.008,
-          (Math.random() - 0.5) * 0.008,
-          (Math.random() - 0.5) * 0.005
-        ),
-        baseScale: 1.0,
-        targetScale: 1.0,
-        hovered: false
-      };
-      
-      this.aboutNodes.push(mesh);
-      this.aboutScene.add(mesh);
-    }
-
-    // Connect nodes with lines (adjacency links)
-    this.updateGraphLines();
-  }
-
-  updateGraphLines() {
-    // Collect lines
-    const linePositions = [];
-    const lineColors = [];
-    const colorWhite = new THREE.Color(0x8E95B2);
-
-    // Limit connectivity distance
-    const maxDist = 2.4;
-
-    for (let i = 0; i < this.aboutNodes.length; i++) {
-      for (let j = i + 1; j < this.aboutNodes.length; j++) {
-        const p1 = this.aboutNodes[i].position;
-        const p2 = this.aboutNodes[j].position;
-        const dist = p1.distanceTo(p2);
-
-        if (dist < maxDist) {
-          linePositions.push(p1.x, p1.y, p1.z);
-          linePositions.push(p2.x, p2.y, p2.z);
-          
-          lineColors.push(colorWhite.r, colorWhite.g, colorWhite.b);
-          lineColors.push(colorWhite.r, colorWhite.g, colorWhite.b);
-        }
-      }
-    }
-
-    if (this.aboutLinks) {
-      this.aboutScene.remove(this.aboutLinks);
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(lineColors, 3));
-
-    const material = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.15,
-      blending: THREE.AdditiveBlending
-    });
-
-    this.aboutLinks = new THREE.LineSegments(geometry, material);
-    this.aboutScene.add(this.aboutLinks);
-  }
-
-  animateAboutGraph() {
-    if (!this.aboutScene) return;
-
-    const boundsX = 3.5;
-    const boundsY = 2.8;
-    const boundsZ = 2.0;
-
-    // Update node positions (drift) and scales
-    this.aboutNodes.forEach(node => {
-      node.position.add(node.userData.velocity);
-
-      // Bounce off boundaries
-      if (Math.abs(node.position.x) > boundsX) node.userData.velocity.x *= -1;
-      if (Math.abs(node.position.y) > boundsY) node.userData.velocity.y *= -1;
-      if (Math.abs(node.position.z) > boundsZ) node.userData.velocity.z *= -1;
-
-      // Pulse scaling logic
-      node.scale.lerp(new THREE.Vector3().setScalar(node.userData.targetScale), 0.1);
-    });
-
-    this.updateGraphLines();
-    this.aboutRenderer.render(this.aboutScene, this.aboutCamera);
-  }
 
   // --- WINDOW EVENT HANDLERS ---
   onWindowResize() {
@@ -569,14 +413,7 @@ class ThreeScene {
       }
     }
 
-    // About graph resize
-    if (this.aboutContainer && this.aboutRenderer) {
-      const width = this.aboutContainer.clientWidth;
-      const height = this.aboutContainer.clientHeight;
-      this.aboutCamera.aspect = width / height;
-      this.aboutCamera.updateProjectionMatrix();
-      this.aboutRenderer.setSize(width, height);
-    }
+
   }
 
   onMouseMove(e) {
@@ -651,10 +488,7 @@ class ThreeScene {
       this.renderer.render(this.scene, this.camera);
     }
 
-    // Render and animate about scene (Only render when visible and on desktop/tablet)
-    if (!this.isMobile && this.aboutScene && this.isAboutSceneVisible) {
-      this.animateAboutGraph();
-    }
+
   }
 }
 

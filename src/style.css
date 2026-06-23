@@ -370,9 +370,9 @@ section {
 /* About Us Section */
 .about-grid {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1fr 1fr;
   gap: 4rem;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .about-text h3 {
