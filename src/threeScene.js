@@ -157,11 +157,9 @@ class ThreeScene {
     // 3. Ambient Starfield
     this.createStarfield();
 
-    // 4. Procedural Mars (Disabled on mobile to optimize performance)
-    if (!this.isMobile) {
-      this.createProceduralMars();
-      this.createOrbitLines();
-    }
+    // 4. Procedural Mars (Always enabled, optimized segment count on mobile)
+    this.createProceduralMars();
+    this.createOrbitLines();
 
     // 5. Lighting (Ambient color adjusted to #0E0E0E context)
     const ambientLight = new THREE.AmbientLight(0x0E0E0E, 1.5);
@@ -171,10 +169,8 @@ class ThreeScene {
     sunLight.position.set(5, 3, 5);
     this.scene.add(sunLight);
 
-    // 6. About Section Interactive Graph Setup (Only on desktop/tablet)
-    if (!this.isMobile) {
-      this.initAboutGraph(aboutTargetId);
-    }
+    // 6. About Section Interactive Graph Setup (Always enabled, optimized node count on mobile)
+    this.initAboutGraph(aboutTargetId);
 
     // 7. Intersection Observers for Lazy Loading / Render Pausing
     const heroSection = document.getElementById('hero');
@@ -259,7 +255,8 @@ class ThreeScene {
   }
 
   createProceduralMars() {
-    const geometry = new THREE.SphereGeometry(2.2, 64, 64);
+    const segments = this.isMobile ? 24 : 64;
+    const geometry = new THREE.SphereGeometry(2.2, segments, segments);
     
     // Custom shader material to generate Mars texture procedurally using noise
     const marsMaterial = new THREE.ShaderMaterial({
@@ -281,7 +278,7 @@ class ThreeScene {
         varying vec3 vNormal;
         varying vec3 vPosition;
         varying vec2 vUv;
-
+ 
         // FBM (Fractional Brownian Motion) helper
         float fbm(vec3 p) {
           float value = 0.0;
@@ -294,7 +291,7 @@ class ThreeScene {
           }
           return value;
         }
-
+ 
         void main() {
           // Normalize position for noise sampling
           vec3 samplePos = normalize(vPosition) * 2.5;
@@ -303,7 +300,7 @@ class ThreeScene {
           float n = fbm(samplePos);
           float detail = fbm(samplePos * 4.5) * 0.2;
           float heightVal = n + detail;
-
+ 
           // Palette Definitions (Mars Reds, Oranges, Dark Plains, Ice Caps)
           vec3 darkRust = vec3(0.35, 0.09, 0.04);
           vec3 brightRust = vec3(0.85, 0.33, 0.18);
@@ -312,11 +309,11 @@ class ThreeScene {
           
           vec3 color = mix(darkRust, brightRust, smoothstep(-0.4, 0.3, heightVal));
           color = mix(color, sandOrange, smoothstep(0.3, 0.7, heightVal));
-
+ 
           // Polar Ice Caps at Y extremities
           float polarGrip = abs(normalize(vPosition).y);
           color = mix(color, iceCap, smoothstep(0.88, 0.98, polarGrip + n * 0.04));
-
+ 
           // Lighting
           vec3 light = normalize(sunDirection);
           float dProd = max(0.0, dot(vNormal, light));
@@ -324,7 +321,7 @@ class ThreeScene {
           // Simple atmosphere rim lighting (fresnel)
           float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 3.0);
           vec3 rimColor = vec3(1.0, 0.3, 0.3) * fresnel * 0.8;
-
+ 
           vec3 finalColor = color * (dProd * 0.9 + 0.1) + rimColor;
           
           gl_FragColor = vec4(finalColor, 1.0);
@@ -334,10 +331,14 @@ class ThreeScene {
         sunDirection: { value: new THREE.Vector3(5, 3, 5).normalize() }
       }
     });
-
+ 
     this.mars = new THREE.Mesh(geometry, marsMaterial);
-    // Position Mars initially in Hero section center-right on desktop
-    this.mars.position.set(2.5, 0, 0);
+    // Position Mars initially in Hero section center-right on desktop, or centered on mobile
+    if (window.innerWidth < 1024) {
+      this.mars.position.set(0, -1.2, 0);
+    } else {
+      this.mars.position.set(2.5, 0, 0);
+    }
     this.scene.add(this.mars);
 
     // Glowing Atmospheric Outer Shell
@@ -442,7 +443,7 @@ class ThreeScene {
     this.aboutScene.add(new THREE.AmbientLight(0x050716, 0.8));
 
     // Create Nodes (Data points)
-    const nodeCount = 18;
+    const nodeCount = this.isMobile ? 8 : 18;
     const sphereGeom = new THREE.SphereGeometry(0.18, 16, 16);
     
     for (let i = 0; i < nodeCount; i++) {
@@ -557,35 +558,10 @@ class ThreeScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-    const wasMobile = this.isMobile;
     this.isMobile = window.innerWidth < 768;
 
-    // Dynamically manage heavy 3D elements on resizing
-    if (this.isMobile !== wasMobile) {
-      if (this.isMobile) {
-        // Switch to mobile performance profile: remove Mars globe
-        if (this.mars) this.scene.remove(this.mars);
-        if (this.aboutRenderer) {
-          this.aboutContainer.innerHTML = '';
-          this.aboutScene = null;
-          this.aboutRenderer = null;
-        }
-      } else {
-        // Switch to desktop profile: load Mars globe and about graph
-        if (this.mars) {
-          this.scene.add(this.mars);
-        } else {
-          this.createProceduralMars();
-          this.createOrbitLines();
-        }
-        if (!this.aboutRenderer && this.aboutTargetId) {
-          this.initAboutGraph(this.aboutTargetId);
-        }
-      }
-    }
-
-    // Adjust Mars position based on screen width (desktop only)
-    if (this.mars && !this.isMobile) {
+    // Adjust Mars position based on screen width
+    if (this.mars) {
       if (window.innerWidth < 1024) {
         this.mars.position.set(0, -1.2, 0);
       } else {
@@ -594,7 +570,7 @@ class ThreeScene {
     }
 
     // About graph resize
-    if (!this.isMobile && this.aboutContainer && this.aboutRenderer) {
+    if (this.aboutContainer && this.aboutRenderer) {
       const width = this.aboutContainer.clientWidth;
       const height = this.aboutContainer.clientHeight;
       this.aboutCamera.aspect = width / height;
